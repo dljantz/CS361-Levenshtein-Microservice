@@ -6,7 +6,9 @@ Takes two string inputs and calculates the Levenshtein distance between them (th
 Make an HTTP GET request to the microservice. Specify two strings.
 
 Example:
-```https://cs361-levenshtein-microservice.onrender.com/?string1=hello&string2=shells```
+```
+https://cs361-levenshtein-microservice.onrender.com/?string1=hello&string2=shells
+```
 
 ## Receiving Data
 A JSON object will be returned.
