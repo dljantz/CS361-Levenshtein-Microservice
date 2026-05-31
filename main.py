@@ -11,6 +11,17 @@ def health_check():
 
 @app.get("/")
 def levenshtein_wrapper(string1: str, string2: str):
+    distance = levenshtein(string1, string2)
+
+    return {
+        "string1": string1,
+        "string2": string2,
+        "levenshtein distance": distance,
+        "recommended forgiveness threshold": -1
+    }
+
+
+def levenshtein(string1: str, string2: str, cache=None) -> int:
     """
     Based on https://medium.com/@ethannam/understanding-the-levenshtein-distance-equation-for-beginners-c4285a5604f0
     """
@@ -29,15 +40,4 @@ def levenshtein_wrapper(string1: str, string2: str):
     fill in the grid as we go
     """
 
-    distance = levenshtein(string1, string2)
-
-    return {
-        "string1": string1,
-        "string2": string2,
-        "levenshtein distance": distance,
-        "recommended forgiveness threshold": -1
-    }
-
-
-def levenshtein(string1: str, string2: str, cache=None) -> int:
     return -1
