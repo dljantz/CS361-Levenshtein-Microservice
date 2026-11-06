@@ -1,0 +1,615 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Levenshtein Distance Interactive Visualizer</title>
+  <script src="https://www.gstatic.com/antigravity/web/dev/tailwindcss.min.js"></script>
+  <style>
+    :root {
+      --background: #0f172a;
+      --card: #1e293b;
+      --border: #334155;
+      --foreground: #f8fafc;
+      --muted-foreground: #94a3b8;
+      --primary: #38bdf8;
+      --primary-foreground: #0f172a;
+      --accent: #a855f7;
+    }
+    .cell-transition {
+      transition: all 0.25s ease-in-out;
+    }
+    .pulse-glow {
+      animation: pulse-glow 1.5s infinite alternate;
+    }
+    @keyframes pulse-glow {
+      0% { box-shadow: 0 0 4px rgba(56, 189, 248, 0.4); }
+      100% { box-shadow: 0 0 16px rgba(56, 189, 248, 0.9); }
+    }
+    /* Custom scrollbar */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: var(--card);
+    }
+    ::-webkit-scrollbar-thumb {
+      background: var(--border);
+      border-radius: 3px;
+    }
+  </style>
+</head>
+<body class="bg-transparent text-[var(--foreground)] antialiased p-3 sm:p-5 font-sans select-none">
+
+  <!-- Main Container Card -->
+  <div class="max-w-4xl mx-auto bg-[var(--card)] text-[var(--foreground)] border border-[var(--border)] rounded-2xl shadow-2xl p-4 sm:p-6 space-y-5">
+    
+    <!-- Header -->
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between border-b border-[var(--border)] pb-4 gap-3">
+      <div>
+        <div class="flex items-center gap-2">
+          <span class="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-sky-500/20 text-sky-400 font-bold text-lg">⚡</span>
+          <h1 class="text-xl sm:text-2xl font-bold tracking-tight text-[var(--foreground)]">Levenshtein Distance Illustrator</h1>
+        </div>
+        <p class="text-xs sm:text-sm text-[var(--muted-foreground)] mt-1">
+          Interactive educational animation showing dynamic programming matrix calculation & traceback.
+        </p>
+      </div>
+      <div class="flex items-center gap-2 self-start sm:self-auto">
+        <span class="text-xs px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-medium">CS361 Microservice</span>
+      </div>
+    </div>
+
+    <!-- Controls & Input Bar -->
+    <div class="grid grid-cols-1 sm:grid-cols-12 gap-3 bg-slate-900/40 p-3 rounded-xl border border-[var(--border)]">
+      <!-- Input String 1 -->
+      <div class="sm:col-span-4">
+        <label class="block text-xs font-semibold text-[var(--muted-foreground)] uppercase tracking-wider mb-1">Source (string1)</label>
+        <input id="inputS1" type="text" value="hello" maxlength="12" class="w-full bg-[var(--card)] border border-[var(--border)] rounded-lg px-3 py-1.5 text-sm font-mono text-[var(--foreground)] focus:outline-none focus:border-sky-400 transition" />
+      </div>
+
+      <!-- Input String 2 -->
+      <div class="sm:col-span-4">
+        <label class="block text-xs font-semibold text-[var(--muted-foreground)] uppercase tracking-wider mb-1">Target (string2)</label>
+        <input id="inputS2" type="text" value="shells" maxlength="12" class="w-full bg-[var(--card)] border border-[var(--border)] rounded-lg px-3 py-1.5 text-sm font-mono text-[var(--foreground)] focus:outline-none focus:border-sky-400 transition" />
+      </div>
+
+      <!-- Presets Dropdown -->
+      <div class="sm:col-span-4">
+        <label class="block text-xs font-semibold text-[var(--muted-foreground)] uppercase tracking-wider mb-1">Presets</label>
+        <select id="presetSelect" class="w-full bg-[var(--card)] border border-[var(--border)] rounded-lg px-3 py-1.5 text-sm text-[var(--foreground)] focus:outline-none focus:border-sky-400 transition cursor-pointer">
+          <option value="hello,shells">"hello" → "shells" (Microservice Example)</option>
+          <option value="kitten,sitting">"kitten" → "sitting" (Classic Textbook)</option>
+          <option value="saturday,sunday">"saturday" → "sunday"</option>
+          <option value="book,back">"book" → "back"</option>
+          <option value="algorithm,alligator">"algorithm" → "alligator"</option>
+          <option value="cake,bake">"cake" → "bake" (1 Substitution)</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Playback Toolbar -->
+    <div class="flex flex-wrap items-center justify-between gap-3 bg-slate-900/60 p-2.5 rounded-xl border border-[var(--border)]">
+      <div class="flex items-center gap-1.5">
+        <!-- Play / Pause -->
+        <button id="btnPlayPause" class="px-3.5 py-1.5 bg-sky-500 hover:bg-sky-400 text-slate-950 font-semibold rounded-lg text-xs flex items-center gap-1.5 transition shadow-sm">
+          <span id="playIcon">▶</span> <span id="playText">Play</span>
+        </button>
+
+        <!-- Step Prev -->
+        <button id="btnPrev" class="px-2.5 py-1.5 bg-[var(--card)] hover:bg-slate-700 border border-[var(--border)] rounded-lg text-xs transition" title="Previous step">
+          ⏮ Prev
+        </button>
+
+        <!-- Step Next -->
+        <button id="btnNext" class="px-2.5 py-1.5 bg-[var(--card)] hover:bg-slate-700 border border-[var(--border)] rounded-lg text-xs transition" title="Next step">
+          Next ⏭
+        </button>
+
+        <!-- Reset -->
+        <button id="btnReset" class="px-2.5 py-1.5 bg-[var(--card)] hover:bg-slate-700 border border-[var(--border)] rounded-lg text-xs text-[var(--muted-foreground)] hover:text-white transition" title="Reset">
+          ↺ Reset
+        </button>
+      </div>
+
+      <!-- Speed & Jump -->
+      <div class="flex items-center gap-3">
+        <div class="flex items-center gap-1.5 text-xs text-[var(--muted-foreground)]">
+          <span>Speed:</span>
+          <select id="speedSelect" class="bg-[var(--card)] border border-[var(--border)] rounded px-2 py-1 text-xs text-[var(--foreground)] focus:outline-none">
+            <option value="600">0.5x (Slow)</option>
+            <option value="250" selected>1x (Normal)</option>
+            <option value="100">2x (Fast)</option>
+            <option value="20">10x (Blazing)</option>
+          </select>
+        </div>
+        <button id="btnFinish" class="px-2.5 py-1.5 bg-[var(--card)] hover:bg-slate-700 border border-[var(--border)] rounded-lg text-xs text-sky-400 transition">
+          ⏩ Jump to End
+        </button>
+      </div>
+    </div>
+
+    <!-- Active Step Explanation Card -->
+    <div id="stepCard" class="bg-gradient-to-r from-slate-900 to-slate-800/80 p-3.5 rounded-xl border border-[var(--border)] space-y-2">
+      <div class="flex items-center justify-between">
+        <span id="stepPhaseBadge" class="text-xs font-mono font-semibold px-2 py-0.5 rounded bg-sky-500/20 text-sky-300 border border-sky-500/30">
+          Ready
+        </span>
+        <span id="stepCounter" class="text-xs text-[var(--muted-foreground)] font-mono">
+          Step 0 / 0
+        </span>
+      </div>
+
+      <!-- Dynamic Visual Decision Box -->
+      <div id="decisionBox" class="text-xs sm:text-sm text-[var(--foreground)]">
+        Press Play or Next to begin illustrating how the table is populated.
+      </div>
+    </div>
+
+    <!-- Visual DP Table Display -->
+    <div class="overflow-x-auto pb-2">
+      <div id="tableContainer" class="inline-block min-w-full flex justify-center py-2">
+        <!-- Injected dynamically via JS -->
+      </div>
+    </div>
+
+    <!-- Legend & Formula Reference -->
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-2 border-t border-[var(--border)] text-xs text-[var(--muted-foreground)]">
+      <div class="flex items-center gap-2 p-1.5 rounded bg-blue-500/10 border border-blue-500/20">
+        <span class="w-3 h-3 rounded bg-blue-500 inline-block"></span>
+        <span><b>Top:</b> Delete (+1)</span>
+      </div>
+      <div class="flex items-center gap-2 p-1.5 rounded bg-cyan-500/10 border border-cyan-500/20">
+        <span class="w-3 h-3 rounded bg-cyan-500 inline-block"></span>
+        <span><b>Left:</b> Insert (+1)</span>
+      </div>
+      <div class="flex items-center gap-2 p-1.5 rounded bg-purple-500/10 border border-purple-500/20">
+        <span class="w-3 h-3 rounded bg-purple-500 inline-block"></span>
+        <span><b>Diag:</b> Match(+0)/Sub(+1)</span>
+      </div>
+      <div class="flex items-center gap-2 p-1.5 rounded bg-emerald-500/10 border border-emerald-500/20">
+        <span class="w-3 h-3 rounded bg-emerald-500 inline-block"></span>
+        <span><b>Traceback:</b> Optimal Path</span>
+      </div>
+    </div>
+
+    <!-- Alignment Transformation Morph Card (Shown on finish) -->
+    <div id="alignmentCard" class="hidden bg-slate-900/80 p-4 rounded-xl border border-emerald-500/30 space-y-3">
+      <div class="flex items-center justify-between">
+        <h3 class="text-sm font-semibold text-emerald-400 flex items-center gap-2">
+          <span>✨</span> Optimal Transformation Sequence
+        </h3>
+        <div class="flex gap-2">
+          <span id="finalDistanceBadge" class="text-xs font-mono px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+            Distance: 0
+          </span>
+          <span id="finalForgivenessBadge" class="text-xs font-mono px-2 py-0.5 rounded bg-purple-500/20 text-purple-300 border border-purple-500/30">
+            Forgiveness: 0
+          </span>
+        </div>
+      </div>
+      
+      <div id="alignmentDisplay" class="font-mono text-sm space-y-1.5 overflow-x-auto p-2 bg-[var(--card)] rounded-lg border border-[var(--border)]">
+        <!-- Traceback steps rendered here -->
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    // --- State & Logic ---
+    let s1 = "hello";
+    let s2 = "shells";
+    let steps = [];
+    let currentStepIndex = 0;
+    let isPlaying = false;
+    let playTimer = null;
+    let cacheMatrix = [];
+    let tracebackPath = [];
+
+    const inputS1 = document.getElementById('inputS1');
+    const inputS2 = document.getElementById('inputS2');
+    const presetSelect = document.getElementById('presetSelect');
+    const btnPlayPause = document.getElementById('btnPlayPause');
+    const playIcon = document.getElementById('playIcon');
+    const playText = document.getElementById('playText');
+    const btnPrev = document.getElementById('btnPrev');
+    const btnNext = document.getElementById('btnNext');
+    const btnReset = document.getElementById('btnReset');
+    const btnFinish = document.getElementById('btnFinish');
+    const speedSelect = document.getElementById('speedSelect');
+    const tableContainer = document.getElementById('tableContainer');
+    const stepCard = document.getElementById('stepCard');
+    const stepPhaseBadge = document.getElementById('stepPhaseBadge');
+    const stepCounter = document.getElementById('stepCounter');
+    const decisionBox = document.getElementById('decisionBox');
+    const alignmentCard = document.getElementById('alignmentCard');
+    const alignmentDisplay = document.getElementById('alignmentDisplay');
+    const finalDistanceBadge = document.getElementById('finalDistanceBadge');
+    const finalForgivenessBadge = document.getElementById('finalForgivenessBadge');
+
+    function recommendForgiveness(str) {
+      const l = str.length;
+      return l - (Math.floor(l * 8 / 10) + 1);
+    }
+
+    function buildSteps(word1, word2) {
+      const m = word1.length;
+      const n = word2.length;
+      const cache = Array.from({ length: m + 1 }, () => Array(n + 1).fill(-1));
+      const stepList = [];
+
+      for (let i = 0; i <= m; i++) {
+        for (let j = 0; j <= n; j++) {
+          if (Math.min(i, j) === 0) {
+            const val = Math.max(i, j);
+            cache[i][j] = val;
+            stepList.push({
+              type: 'base',
+              i, j,
+              val,
+              reason: `Empty string prefix: transforming ${i === 0 ? `"" -> "${word2.slice(0, j)}"` : `"${word1.slice(0, i)}" -> ""`} takes ${val} edits.`
+            });
+          } else {
+            const topVal = cache[i - 1][j];
+            const leftVal = cache[i][j - 1];
+            const diagVal = cache[i - 1][j - 1];
+            const char1 = word1[i - 1];
+            const char2 = word2[j - 1];
+            const match = (char1 === char2);
+            const subCost = match ? 0 : 1;
+
+            const candA = topVal + 1;
+            const candB = leftVal + 1;
+            const candC = diagVal + subCost;
+            const minVal = Math.min(candA, candB, candC);
+            cache[i][j] = minVal;
+
+            stepList.push({
+              type: 'cell',
+              i, j,
+              char1, char2, match,
+              topVal, candA,
+              leftVal, candB,
+              diagVal, subCost, candC,
+              winner: minVal
+            });
+          }
+        }
+      }
+
+      // Traceback
+      const tb = [];
+      let ci = m, cj = n;
+      while (ci > 0 || cj > 0) {
+        if (ci > 0 && cj > 0) {
+          const c1 = word1[ci - 1];
+          const c2 = word2[cj - 1];
+          const cost = (c1 === c2) ? 0 : 1;
+          if (cache[ci][cj] === cache[ci - 1][cj - 1] + cost) {
+            tb.push({ i: ci, j: cj, op: cost === 0 ? `MATCH '${c1}'` : `SUBSTITUTE '${c1}' -> '${c2}'`, cost });
+            ci--; cj--;
+            continue;
+          } else if (cache[ci][cj] === cache[ci - 1][cj] + 1) {
+            tb.push({ i: ci, j: cj, op: `DELETE '${c1}'`, cost: 1 });
+            ci--;
+            continue;
+          } else {
+            tb.push({ i: ci, j: cj, op: `INSERT '${c2}'`, cost: 1 });
+            cj--;
+            continue;
+          }
+        } else if (ci > 0) {
+          tb.push({ i: ci, j: cj, op: `DELETE '${word1[ci - 1]}'`, cost: 1 });
+          ci--;
+        } else {
+          tb.push({ i: ci, j: cj, op: `INSERT '${word2[cj - 1]}'`, cost: 1 });
+          cj--;
+        }
+      }
+      tb.push({ i: 0, j: 0, op: 'START', cost: 0 });
+      tb.reverse();
+
+      return { cache, stepList, tb };
+    }
+
+    function initTable() {
+      const m = s1.length;
+      const n = s2.length;
+      let html = '<table class="border-collapse text-xs sm:text-sm font-mono">';
+      
+      // Top header with s2 characters
+      html += '<thead><tr><th class="p-2 border border-slate-700/60 bg-slate-900/60 text-slate-400"></th>';
+      html += '<th class="p-2 border border-slate-700/60 bg-slate-900/60 text-emerald-400 font-bold">ε</th>';
+      for (let j = 0; j < n; j++) {
+        html += `<th class="p-2 border border-slate-700/60 bg-slate-900/60 text-emerald-400 font-bold">${s2[j]}</th>`;
+      }
+      html += '</tr></thead><tbody>';
+
+      // Rows with s1 characters
+      for (let i = 0; i <= m; i++) {
+        const rowChar = (i === 0) ? 'ε' : s1[i - 1];
+        html += `<tr><th class="p-2 border border-slate-700/60 bg-slate-900/60 text-amber-400 font-bold">${rowChar}</th>`;
+        for (let j = 0; j <= n; j++) {
+          html += `<td id="cell-${i}-${j}" class="cell-transition w-10 sm:w-12 h-10 sm:h-12 text-center border border-slate-700/80 bg-[var(--card)] text-slate-500 font-medium cursor-pointer hover:border-sky-400/50" onclick="inspectCell(${i}, ${j})">·</td>`;
+        }
+        html += '</tr>';
+      }
+      html += '</tbody></table>';
+      tableContainer.innerHTML = html;
+    }
+
+    function resetSimulation() {
+      pause();
+      s1 = inputS1.value.trim() || "hello";
+      s2 = inputS2.value.trim() || "shells";
+      const data = buildSteps(s1, s2);
+      cacheMatrix = data.cache;
+      steps = data.stepList;
+      tracebackPath = data.tb;
+      currentStepIndex = 0;
+      initTable();
+      alignmentCard.classList.add('hidden');
+      stepPhaseBadge.textContent = "Ready";
+      stepPhaseBadge.className = "text-xs font-mono font-semibold px-2 py-0.5 rounded bg-sky-500/20 text-sky-300 border border-sky-500/30";
+      stepCounter.textContent = `Step 0 / ${steps.length}`;
+      decisionBox.innerHTML = `Ready to compute Levenshtein distance between <b>"${s1}"</b> and <b>"${s2}"</b>. Press Play or Next!`;
+    }
+
+    function applyStep(index, highlight=true) {
+      if (index < 0 || index >= steps.length) return;
+      const step = steps[index];
+      const cell = document.getElementById(`cell-${step.i}-${step.j}`);
+      if (!cell) return;
+
+      // Set cell value
+      cell.textContent = (step.type === 'base') ? step.val : step.winner;
+      cell.classList.remove('text-slate-500');
+      cell.classList.add('text-white');
+
+      if (highlight) {
+        // Clear all previous highlight classes across table
+        clearCellHighlights();
+
+        // Highlight active cell
+        cell.classList.add('ring-2', 'ring-sky-400', 'bg-sky-500/20', 'pulse-glow');
+
+        // If step is a regular cell, highlight predecessors
+        if (step.type === 'cell') {
+          const topCell = document.getElementById(`cell-${step.i - 1}-${step.j}`);
+          const leftCell = document.getElementById(`cell-${step.i}-${step.j - 1}`);
+          const diagCell = document.getElementById(`cell-${step.i - 1}-${step.j - 1}`);
+
+          if (topCell) topCell.classList.add('ring-1', 'ring-blue-400', 'bg-blue-500/20');
+          if (leftCell) leftCell.classList.add('ring-1', 'ring-cyan-400', 'bg-cyan-500/20');
+          if (diagCell) diagCell.classList.add('ring-1', 'ring-purple-400', 'bg-purple-500/20');
+
+          stepPhaseBadge.textContent = "Computing Cell";
+          stepPhaseBadge.className = "text-xs font-mono font-semibold px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30";
+
+          const matchBadge = step.match
+            ? '<span class="text-emerald-400 font-bold bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">MATCH ('+0')</span>'
+            : '<span class="text-rose-400 font-bold bg-rose-500/10 px-2 py-0.5 rounded border border-rose-500/20">DIFFER ('+1')</span>';
+
+          decisionBox.innerHTML = `
+            <div class="space-y-2">
+              <div class="flex items-center gap-2">
+                <span>Comparing: row <b>'${step.char1}'</b> vs col <b>'${step.char2}'</b></span>
+                ${matchBadge}
+              </div>
+              <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
+                <div class="p-2 rounded bg-blue-500/10 border border-blue-500/20 ${step.winner === step.candA ? 'ring-1 ring-blue-400 font-bold' : 'opacity-80'}">
+                  ⬆ <b>Top (Delete):</b> ${step.topVal} + 1 = <b>${step.candA}</b>
+                </div>
+                <div class="p-2 rounded bg-cyan-500/10 border border-cyan-500/20 ${step.winner === step.candB ? 'ring-1 ring-cyan-400 font-bold' : 'opacity-80'}">
+                  ⬅ <b>Left (Insert):</b> ${step.leftVal} + 1 = <b>${step.candB}</b>
+                </div>
+                <div class="p-2 rounded bg-purple-500/10 border border-purple-500/20 ${step.winner === step.candC ? 'ring-1 ring-purple-400 font-bold' : 'opacity-80'}">
+                  ↖ <b>Diag (${step.match ? 'Match' : 'Sub'}):</b> ${step.diagVal} + ${step.subCost} = <b>${step.candC}</b>
+                </div>
+              </div>
+              <div class="text-xs text-sky-300">
+                👉 Result = min(${step.candA}, ${step.candB}, ${step.candC}) = <span class="text-amber-300 font-bold text-sm">${step.winner}</span>
+              </div>
+            </div>
+          `;
+        } else {
+          stepPhaseBadge.textContent = "Base Case";
+          stepPhaseBadge.className = "text-xs font-mono font-semibold px-2 py-0.5 rounded bg-sky-500/20 text-sky-300 border border-sky-500/30";
+          decisionBox.innerHTML = `<span class="text-sky-300">${step.reason}</span>`;
+        }
+      }
+      stepCounter.textContent = `Step ${index + 1} / ${steps.length}`;
+    }
+
+    function clearCellHighlights() {
+      const cells = tableContainer.querySelectorAll('td');
+      cells.forEach(c => {
+        c.classList.remove('ring-2', 'ring-1', 'ring-sky-400', 'ring-blue-400', 'ring-cyan-400', 'ring-purple-400', 'ring-emerald-400', 'bg-sky-500/20', 'bg-blue-500/20', 'bg-cyan-500/20', 'bg-purple-500/20', 'pulse-glow');
+      });
+    }
+
+    function finishAllSteps() {
+      pause();
+      clearCellHighlights();
+      for (let i = 0; i < steps.length; i++) {
+        applyStep(i, false);
+      }
+      currentStepIndex = steps.length;
+      showTraceback();
+    }
+
+    function showTraceback() {
+      clearCellHighlights();
+      tracebackPath.forEach(pt => {
+        const cell = document.getElementById(`cell-${pt.i}-${pt.j}`);
+        if (cell) {
+          cell.classList.add('bg-emerald-500/30', 'text-emerald-300', 'ring-1', 'ring-emerald-400', 'font-bold');
+        }
+      });
+
+      stepPhaseBadge.textContent = "Traceback Finished";
+      stepPhaseBadge.className = "text-xs font-mono font-semibold px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30";
+
+      const finalDist = cacheMatrix[s1.length][s2.length];
+      const forgiveness = recommendForgiveness(s1);
+
+      decisionBox.innerHTML = `
+        <div class="text-emerald-300">
+          🎉 Matrix complete! The green path highlights the optimal edit sequence from <b>(0,0)</b> to <b>(${s1.length},${s2.length})</b>.
+          Levenshtein Distance = <b>${finalDist}</b> edit(s).
+        </div>
+      `;
+
+      finalDistanceBadge.textContent = `Levenshtein Distance: ${finalDist}`;
+      finalForgivenessBadge.textContent = `Forgiveness Threshold: ${forgiveness}`;
+
+      let tbHtml = '';
+      tracebackPath.forEach((pt, idx) => {
+        if (pt.op === 'START') return;
+        let badgeColor = 'text-slate-300';
+        if (pt.op.startsWith('MATCH')) badgeColor = 'text-emerald-400';
+        else if (pt.op.startsWith('SUBSTITUTE')) badgeColor = 'text-amber-400';
+        else if (pt.op.startsWith('INSERT')) badgeColor = 'text-cyan-400';
+        else if (pt.op.startsWith('DELETE')) badgeColor = 'text-rose-400';
+
+        tbHtml += `<div class="flex items-center gap-2"><span class="text-xs text-slate-500">Step ${idx}:</span> <span class="${badgeColor} font-semibold">${pt.op}</span></div>`;
+      });
+      alignmentDisplay.innerHTML = tbHtml;
+      alignmentCard.classList.remove('hidden');
+    }
+
+    function stepForward() {
+      if (currentStepIndex < steps.length) {
+        applyStep(currentStepIndex, true);
+        currentStepIndex++;
+        if (currentStepIndex === steps.length) {
+          pause();
+          setTimeout(showTraceback, 400);
+        }
+      } else {
+        showTraceback();
+        pause();
+      }
+    }
+
+    function stepBackward() {
+      if (currentStepIndex > 1) {
+        currentStepIndex -= 2;
+        // re-render up to currentStepIndex
+        initTable();
+        for (let i = 0; i <= currentStepIndex; i++) {
+          applyStep(i, i === currentStepIndex);
+        }
+        currentStepIndex++;
+      } else if (currentStepIndex === 1) {
+        resetSimulation();
+      }
+    }
+
+    function play() {
+      if (currentStepIndex >= steps.length) {
+        resetSimulation();
+      }
+      isPlaying = true;
+      playIcon.textContent = '⏸';
+      playText.textContent = 'Pause';
+      btnPlayPause.classList.replace('bg-sky-500', 'bg-amber-500');
+
+      const speed = parseInt(speedSelect.value, 10);
+      playTimer = setInterval(() => {
+        if (currentStepIndex < steps.length) {
+          stepForward();
+        } else {
+          pause();
+        }
+      }, speed);
+    }
+
+    function pause() {
+      isPlaying = false;
+      playIcon.textContent = '▶';
+      playText.textContent = 'Play';
+      btnPlayPause.classList.replace('bg-amber-500', 'bg-sky-500');
+      if (playTimer) {
+        clearInterval(playTimer);
+        playTimer = null;
+      }
+    }
+
+    function inspectCell(i, j) {
+      const step = steps.find(s => s.i === i && s.j === j);
+      if (!step) return;
+      pause();
+      clearCellHighlights();
+      const targetCell = document.getElementById(`cell-${i}-${j}`);
+      if (targetCell) {
+        targetCell.classList.add('ring-2', 'ring-sky-400', 'bg-sky-500/20');
+      }
+      if (step.type === 'cell') {
+        const topCell = document.getElementById(`cell-${i - 1}-${j}`);
+        const leftCell = document.getElementById(`cell-${i}-${j - 1}`);
+        const diagCell = document.getElementById(`cell-${i - 1}-${j - 1}`);
+        if (topCell) topCell.classList.add('ring-1', 'ring-blue-400', 'bg-blue-500/20');
+        if (leftCell) leftCell.classList.add('ring-1', 'ring-cyan-400', 'bg-cyan-500/20');
+        if (diagCell) diagCell.classList.add('ring-1', 'ring-purple-400', 'bg-purple-500/20');
+
+        decisionBox.innerHTML = `
+          <div class="space-y-1">
+            <span class="text-sky-300 font-bold">Inspecting Cell (${i}, ${j}):</span>
+            Row char '${step.char1}' vs Col char '${step.char2}' (${step.match ? 'Match +0' : 'Differ +1'})
+            <div class="grid grid-cols-3 gap-2 mt-1 text-xs">
+              <div class="p-1.5 rounded bg-blue-500/10 border border-blue-500/20">Top: ${step.topVal} + 1 = <b>${step.candA}</b></div>
+              <div class="p-1.5 rounded bg-cyan-500/10 border border-cyan-500/20">Left: ${step.leftVal} + 1 = <b>${step.candB}</b></div>
+              <div class="p-1.5 rounded bg-purple-500/10 border border-purple-500/20">Diag: ${step.diagVal} + ${step.subCost} = <b>${step.candC}</b></div>
+            </div>
+            <div class="text-xs text-amber-300">Minimum = ${step.winner}</div>
+          </div>
+        `;
+      } else {
+        decisionBox.innerHTML = `<span class="text-sky-300">Base Case Cell (${i}, ${j}): ${step.reason}</span>`;
+      }
+    }
+
+    // --- Event Listeners ---
+    btnPlayPause.addEventListener('click', () => {
+      if (isPlaying) pause();
+      else play();
+    });
+
+    btnNext.addEventListener('click', () => {
+      pause();
+      stepForward();
+    });
+
+    btnPrev.addEventListener('click', () => {
+      pause();
+      stepBackward();
+    });
+
+    btnReset.addEventListener('click', resetSimulation);
+    btnFinish.addEventListener('click', finishAllSteps);
+
+    speedSelect.addEventListener('change', () => {
+      if (isPlaying) {
+        pause();
+        play();
+      }
+    });
+
+    presetSelect.addEventListener('change', (e) => {
+      const [w1, w2] = e.target.value.split(',');
+      inputS1.value = w1;
+      inputS2.value = w2;
+      resetSimulation();
+    });
+
+    inputS1.addEventListener('input', resetSimulation);
+    inputS2.addEventListener('input', resetSimulation);
+
+    // Initial setup
+    resetSimulation();
+  </script>
+</body>
+</html>
